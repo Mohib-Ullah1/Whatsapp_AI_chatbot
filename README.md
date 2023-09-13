@@ -1,218 +1,49 @@
-import os
-import json
-import openai
-from time import sleep
-from argparse import ArgumentParser, Namespace
+# **WhatsApp Chatbot**
 
+This script allows you to automate messaging on WhatsApp using Selenium and interact with OpenAI's GPT-3.5-turbo model to generate AI responses.
+
+## **Prerequisites**
+
+Before running the script, make sure you have the following dependencies installed:
+
+- Python 3.x
+- Linux : `pip3 install -r requirements.txt`
+- Windows: `pip install -r requirements.txt`
+
+**Note**: The `webdriver_manager` package simplifies the process of managing and downloading the appropriate WebDriver executable. When using the `webdriver.Chrome()` constructor, it will automatically download the appropriate ChromeDriver if it's not already loaded. If the driver is already present, it finds it in the cache and uses it directly.
+
+```python
 from selenium import webdriver
-from selenium.common import exceptions
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.support import expected_conditions as EC
 
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
+```
 
-class Bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+This eliminates the need for manually setting the `executable_path` and managing the ChromeDriver version. The `webdriver_manager` package takes care of it for you, making the setup process easier and more convenient.
 
+## **Usage**
 
-parser = ArgumentParser(description="WhatsApp AI Chatbot")
+1. Run the script by executing the following command:
+      - `python main.py -n "chat name" -c [1, 2]`
+      - `python main.py --name "chat name" --choice [1, 2]`     
+3. Scan the QR code displayed in the console using your WhatsApp mobile app to log in.
+4. Enter the name of the contact you want to message when prompted.
+5. Choose an option:
+   - Option 1: Reply yourself - You can manually type the message you want to send.
+   - Option 2: Let us handle it for you - The script will retrieve the last message from the selected contact and generate an AI response using OpenAI's GPT-3.5-turbo model.
+6. Follow the instructions on the console to enter your message or press Enter to finish.
+7. The script will send the message or the AI-generated response to the selected contact.
+8. The browser will be automatically closed after 10 seconds.
 
-parser.usage = 'python main.py --name "Chat Name" --choice 1'
+**Note: Make sure you have an active internet connection and the person you want to message is visible in your WhatsApp chat list.**
 
-parser.add_argument('-n', '--name',
-                    type=str,
-                    dest='name',
-                    required=True,
-                    metavar='',
-                    help='Name of the person you wish to send a message to'
-)
-parser.add_argument('-c', '--choice', type=int,
-                    dest='user_choice',
-                    metavar='',
-                    choices=[1, 2],
-                    default=2,
-                    help='Messaging option:\n'
-                         '1. Reply manually\n'
-                         '2. Generate AI response',
-)
+## **Important Note**
 
-args: Namespace = parser.parse_args()
+- Use this script responsibly and in accordance with WhatsApp's terms of service. Automated messaging may violate WhatsApp's policies, so it's recommended to use this script for personal and non-commercial purposes only.
+- Remember to respect privacy and consent. Always obtain permission from the recipients before sending automated messages.
+- Be cautious while interacting with OpenAI's GPT-3.5-turbo model and ensure that the generated responses align with ethical guidelines and standards.
 
-# Current user's home directory
-home_dir = os.path.expanduser("~")
-user_data_dir = os.path.join(home_dir, "AppData", "Local", "Google", "Chrome", "User Data", "Default")
+## **Disclaimer**
 
-chrome_options = webdriver.ChromeOptions()
-chrome_options.add_experimental_option("detach", True)
-chrome_options.add_argument(f'--user-data-dir={user_data_dir}')
-chrome_options.add_argument('--profile-directory=Default')
-
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-
-driver.get("https://web.whatsapp.com/")
-driver.maximize_window()
-
-wait = WebDriverWait(driver, 20)
-try:
-    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "div.k8VZe")))
-except exceptions.TimeoutException:
-    print(Bcolors.WARNING + "Login took longer than expected" + Bcolors.ENDC)
-
-
-def scroll_to_bottom():
-    last_height = driver.execute_script("return document.body.scrollHeight")
-    while True:
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        sleep(1)
-        new_height = driver.execute_script("return document.body.scrollHeight")
-        if new_height == last_height:
-            break
-        last_height = new_height
-
-
-# Call the scroll_to_bottom function to scroll to the bottom of the page
-scroll_to_bottom()
-
-
-def input_message():
-    print(Bcolors.HEADER + "Please enter your message, and use the symbol '~' on a new line to indicate the end of the message.")
-    print("For example: Hi, this is a test message\n~" + Bcolors.ENDC)
-    print("Your message (press Enter to finish): ")
-
-    message = []
-
-    while True:
-        temp = input()
-
-        if temp.strip() == "~":
-            break
-
-        message.append(temp)
-
-    return "\n".join(message)
-
-
-def get_last_message(person_name):
-
-    contact_name_selector = f'//span[@title="{person_name}"]'
-    chat = driver.find_element(By.XPATH, contact_name_selector)
-    chat.click()
-
-    sleep(2)
-    try:
-        # Locate the message elements within the chat window
-        message_elements = driver.find_elements(By.CSS_SELECTOR, '.message-in, .message-out')
-
-        # Retrieve the last message element
-        last_message_element = message_elements[-1]
-
-        # Extract the text content of the last message, excluding the time stamp
-        last_message = last_message_element.find_element(By.CSS_SELECTOR, '.selectable-text').text
-
-        print(Bcolors.OKGREEN + "Last Message:", last_message + Bcolors.ENDC)
-
-        # return the last message
-        return last_message
-
-    except IndexError as e:
-        print(Bcolors.WARNING + "There are no recent messages." + Bcolors.ENDC)
-
-
-def get_api_key():
-    with open('api_key.json', 'r') as file:
-        config = json.load(file)
-
-    return config['api_key']
-
-
-def generate_ai_response(args: str):
-
-    try:
-        openai.api_key = get_api_key()
-
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "user",
-                    "content": args
-                }
-            ]
-        )
-
-        return response.choices[0].message.content
-
-    except openai.OpenAIError as e:
-        # Handle OpenAI API errors
-        print(Bcolors.FAIL + f"OpenAI API Error: {str(e)}" + Bcolors.ENDC)
-        return None
-
-
-def main(person_name, callback_func=None):
-    # Select contact element based on person_name
-    contact_name_selector = f'//span[@title="{person_name}"]'
-    contact_elements = driver.find_elements(By.XPATH, contact_name_selector)
-
-    for contact_element in contact_elements:
-        if contact_element.get_attribute("title") == person_name:
-            contact_element.click()
-
-            if callback_func:
-                message_input = input_message()
-                message_input_xpath = driver.find_element(By.XPATH, '//footer//p')
-                message_input_xpath.send_keys(message_input, Keys.ENTER)
-                print(Bcolors.OKGREEN + "Message sent successfully.")
-
-            if not callback_func:
-                # Get the last message from the person
-                last_message = get_last_message(person_name)
-
-                # Generate AI response using chatgpt
-                ai_response = generate_ai_response(last_message)
-
-                message_input_xpath = driver.find_element(By.XPATH, '//footer//p')
-                message_input_xpath.send_keys(ai_response, Keys.ENTER)
-                print(Bcolors.OKCYAN + f"ChatGPT: {ai_response}")
-                print(Bcolors.OKGREEN + "Message sent successfully.")
-        break
-
-
-contact_name = args.name
-
-contact_found = False
-
-while not contact_found:
-    contact_name_selector = f'//span[@title="{contact_name}"]'
-    contact_elements = driver.find_elements(By.XPATH, contact_name_selector)
-
-    if len(contact_elements) > 0:
-        contact_found = True
-    else:
-        print(Bcolors.FAIL + f"Contact with the name {Bcolors.BOLD}'{contact_name}'{Bcolors.ENDC} not found. Please try again." + Bcolors.ENDC)
-        contact_name = input(Bcolors.OKBLUE + "Enter the name of the contact you want to message:\n" + Bcolors.ENDC)
-
-print(Bcolors.OKGREEN + f"Contact with the name '{contact_name}' found!" + Bcolors.ENDC)
-
-
-if args.user_choice:
-    if args.user_choice == 1:
-        main(contact_name, callback_func=input_message)
-    if args.user_choice == 2:
-        main(contact_name)
-else:
-    print(Bcolors.FAIL + "Invalid choice. Please enter a valid option." + Bcolors.ENDC)
-
-print("Browser will be closed in 10 seconds.")
-sleep(10)
-driver.quit()
+This script is provided as-is without any warranty. Use it at your own risk. The script author and OpenAI shall not be held responsible for any misuse or damages caused by this script.
